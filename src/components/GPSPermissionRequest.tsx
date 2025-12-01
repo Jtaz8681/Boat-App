@@ -16,12 +16,21 @@ export default function GPSPermissionRequest({ onPermissionGranted, onPermission
   const { requestPermission, error } = useGPS()
   const [isRequesting, setIsRequesting] = useState(false)
   const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown')
+  const [isClient, setIsClient] = useState(false)
 
+  // Ensure we're on client side
   useEffect(() => {
-    checkPermissionStatus()
+    setIsClient(true)
   }, [])
 
+  useEffect(() => {
+    if (!isClient) return
+    checkPermissionStatus()
+  }, [isClient])
+
   const checkPermissionStatus = async () => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return
+    
     if ('permissions' in navigator) {
       try {
         const permission = await navigator.permissions.query({ name: 'geolocation' })
@@ -51,6 +60,19 @@ export default function GPSPermissionRequest({ onPermissionGranted, onPermission
     }
     
     setIsRequesting(false)
+  }
+
+  if (!isClient) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <MapPin className="h-12 w-12 text-blue-600" />
+          </div>
+          <CardTitle>Loading...</CardTitle>
+        </CardHeader>
+      </Card>
+    )
   }
 
   if (permissionStatus === 'granted') {
