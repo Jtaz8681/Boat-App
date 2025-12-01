@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useContext, createContext, ReactNode } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
 import { UserProfile } from '@/types/database'
 
 interface AuthContextType {
@@ -145,21 +145,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           },
         },
       })
-
-      if (data.user && !error) {
-        // Create user profile with captain role by default
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: data.user.id,
-            full_name: fullName,
-            role: 'captain', // Default role for new users
-          })
-
-        if (profileError) {
-          console.error('Error creating user profile:', profileError)
-        }
-      }
 
       return { error }
     } catch (error) {
