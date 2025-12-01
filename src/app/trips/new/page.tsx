@@ -16,6 +16,7 @@ import { Ship, MapPin, Users, Fuel, Clock, Play, Square } from 'lucide-react'
 import Link from 'next/link'
 import { Boat } from '@/types/database'
 import { TripData } from '@/types/app'
+import GPSPermissionRequest from '@/components/GPSPermissionRequest'
 
 const tripSchema = z.object({
   boat_id: z.string().uuid('Please select a boat'),
@@ -34,7 +35,7 @@ type TripFormData = z.infer<typeof tripSchema>
 export default function NewTripPage() {
   const { user, profile, loading } = useAuth()
   const router = useRouter()
-  const { position, getCurrentPosition, startTracking, stopTracking, isTracking } = useGPS({
+  const { position, getCurrentPosition, startTracking, stopTracking, isTracking, requestPermission } = useGPS({
     watchInterval: 30000,
     enableHighAccuracy: true,
     enableBackgroundTracking: true,
@@ -45,6 +46,7 @@ export default function NewTripPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTrip, setActiveTrip] = useState<TripData | null>(null)
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [gpsPermissionGranted, setGpsPermissionGranted] = useState<boolean | null>(null)
 
   const {
     register,
@@ -96,16 +98,36 @@ export default function NewTripPage() {
     }
   }, [user])
 
-  // Get current location when component mounts
+  // Check GPS permission on mount
   useEffect(() => {
+    const checkGPSPermission = async () => {
+      const granted = await requestPermission()
+      setGpsPermissionGranted(granted)
+      if (granted) {
+        getCurrentPosition()
+      }
+    }
+    
+    if (user) {
+      checkGPSPermission()
+    }
+  }, [user, requestPermission, getCurrentPosition])
+
+  // Handle GPS permission granted
+  const handleGPSPermissionGranted = () => {
+    setGpsPermissionGranted(true)
     getCurrentPosition()
-  }, [getCurrentPosition])
+  }
+
+  // Handle GPS permission denied
+  const handleGPSPermissionDenied = () => {
+    setGpsPermissionGranted(false)
+  }
 
   // Handle trip start
   const onStartTrip = async (data: TripFormData) => {
     if (!position) {
-      setError('GPS location required to start trip')
-      setShowLocationModal(true)
+      setError('GPS location required to start trip. Please enable location access.')
       return
     }
 
@@ -191,6 +213,18 @@ export default function NewTripPage() {
   if (!user || !profile) {
     router.push('/login')
     return null
+  }
+
+  // Show GPS permission request if not granted
+  if (gpsPermissionGranted === false) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <GPSPermissionRequest
+          onPermissionGranted={handleGPSPermissionGranted}
+          onPermissionDenied={handleGPSPermissionDenied}
+        />
+      </div>
+    )
   }
 
   if (activeTrip) {
@@ -342,6 +376,16 @@ export default function NewTripPage() {
           </Alert>
         )}
 
+        {/* GPS Permission Request */}
+        {gpsPermissionGranted === null && (
+          <div className="mb-6">
+            <GPSPermissionRequest
+              onPermissionGranted={handleGPSPermissionGranted}
+              onPermissionDenied={handleGPSPermissionDenied}
+            />
+          </div>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Trip Information</CardTitle>
@@ -451,7 +495,7 @@ export default function NewTripPage() {
                     <>
                       <div className="h-3 w-3 bg-red-500 rounded-full"></div>
                       <span className="text-sm text-red-800">
-                        GPS Not Available
+                        GPS Not Available - Please enable location access
                       </span>
                     </>
                   )}
@@ -461,7 +505,7 @@ export default function NewTripPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading || !position}
+                disabled={isLoading || !position || !gpsPermissionGranted}
               >
                 {isLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
