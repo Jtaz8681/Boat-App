@@ -72,6 +72,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const initializeAuth = async () => {
       try {
+        if (!supabase) return
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
@@ -95,20 +96,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user)
-          const userProfile = await fetchProfile(session.user.id)
-          setProfile(userProfile)
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
-          setProfile(null)
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.user) {
+            setUser(session.user)
+            const userProfile = await fetchProfile(session.user.id)
+            setProfile(userProfile)
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null)
+            setProfile(null)
+          }
         }
-      }
-    )
+      )
 
-    return () => subscription.unsubscribe()
+      return () => subscription.unsubscribe()
+    }
   }, [])
 
   const signIn = async (email: string, password: string) => {
