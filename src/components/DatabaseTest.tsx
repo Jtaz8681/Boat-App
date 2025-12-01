@@ -7,11 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Database, CheckCircle, XCircle, Loader2, Info } from 'lucide-react'
 
+interface DatabaseInfo {
+  [key: string]: {
+    count: number;
+    error?: string;
+  };
+}
+
 export default function DatabaseTest() {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [dbInfo, setDbInfo] = useState<any>(null)
+  const [dbInfo, setDbInfo] = useState<DatabaseInfo>({})
 
   const testDatabaseConnection = async () => {
     setLoading(true)
@@ -170,7 +177,7 @@ export default function DatabaseTest() {
   const getDatabaseInfo = async () => {
     try {
       const tables = ['user_profiles', 'boats', 'boat_trips', 'trip_tracking_points', 'maintenance_records', 'maintenance_schedule', 'fuel_consumption']
-      const info = {}
+      const info: DatabaseInfo = {}
 
       for (const table of tables) {
         const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true })
@@ -207,7 +214,7 @@ export default function DatabaseTest() {
               <span>Database Overview</span>
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              {Object.entries(dbInfo).map(([table, info]: [string, any]) => (
+              {Object.entries(dbInfo).map(([table, info]) => (
                 <div key={table} className="flex justify-between">
                   <span className="font-medium text-blue-800">{table}:</span>
                   <span className={info.error ? 'text-red-600' : 'text-green-600'}>
