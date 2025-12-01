@@ -21,6 +21,11 @@ export default function DatabaseTest() {
   const [dbInfo, setDbInfo] = useState<DatabaseInfo>({})
 
   const testDatabaseConnection = async () => {
+    if (!supabase) {
+      setError('Supabase client not initialized. Please check your environment variables.')
+      return
+    }
+
     setLoading(true)
     setError(null)
     setResults([])
@@ -175,6 +180,8 @@ export default function DatabaseTest() {
   }
 
   const getDatabaseInfo = async () => {
+    if (!supabase) return
+
     try {
       const tables = ['user_profiles', 'boats', 'boat_trips', 'trip_tracking_points', 'maintenance_records', 'maintenance_schedule', 'fuel_consumption']
       const info: DatabaseInfo = {}
@@ -206,8 +213,17 @@ export default function DatabaseTest() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Supabase Status */}
+        {!supabase && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              Supabase client not initialized. Please check your environment variables in .env.local file.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Database Info */}
-        {dbInfo && (
+        {dbInfo && Object.keys(dbInfo).length > 0 && (
           <div className="bg-blue-50 p-4 rounded-lg">
             <h3 className="font-medium text-blue-900 mb-3 flex items-center space-x-2">
               <Info className="h-4 w-4" />
@@ -229,7 +245,7 @@ export default function DatabaseTest() {
         {/* Test Button */}
         <Button 
           onClick={testDatabaseConnection} 
-          disabled={loading}
+          disabled={loading || !supabase}
           className="w-full"
         >
           {loading ? (

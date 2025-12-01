@@ -42,6 +42,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
+    if (!supabase) return null
+    
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -63,6 +65,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Initialize auth state
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
+
     const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession()
@@ -105,6 +112,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) {
+      return { error: { message: 'Supabase client not initialized' } as AuthError }
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -135,6 +146,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    if (!supabase) {
+      return { error: { message: 'Supabase client not initialized' } as AuthError }
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -154,6 +169,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const signOut = async () => {
+    if (!supabase) return
+
     try {
       await supabase.auth.signOut()
       setUser(null)
@@ -164,6 +181,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const resetPassword = async (email: string) => {
+    if (!supabase) {
+      return { error: { message: 'Supabase client not initialized' } as AuthError }
+    }
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email)
       return { error }
@@ -174,11 +195,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
-    try {
-      if (!user) {
-        return { error: { message: 'No user logged in' } }
-      }
+    if (!supabase || !user) {
+      return { error: { message: 'Supabase client not initialized or no user logged in' } }
+    }
 
+    try {
       const { error } = await supabase
         .from('user_profiles')
         .update(updates)
