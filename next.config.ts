@@ -6,8 +6,19 @@ import withPWA from "next-pwa";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['localhost', 'supabase.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'supabase.co',
+      },
+    ],
   },
+  // Add empty turbopack config to silence the warning
+  turbopack: {},
 };
 
 export default withPWA({
