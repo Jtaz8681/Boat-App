@@ -86,6 +86,7 @@ export default function LoginPage() {
                 placeholder="captain@example.com"
                 {...register('email')}
                 disabled={isSubmitting}
+                className="touch-manipulation"
               />
               {errors.email && (
                 <p className="text-sm text-red-600">{errors.email.message}</p>
@@ -101,11 +102,13 @@ export default function LoginPage() {
                   placeholder="Enter your password"
                   {...register('password')}
                   disabled={isSubmitting}
+                  className="touch-manipulation pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1 touch-manipulation"
+                  style={{ minHeight: '44px', minWidth: '44px' }}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -121,8 +124,9 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full touch-manipulation"
               disabled={isSubmitting}
+              style={{ minHeight: '44px' }}
             >
               {isSubmitting ? (
                 <>
@@ -138,7 +142,8 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-sm text-blue-600 hover:text-blue-800"
+                className="text-sm text-blue-600 hover:text-blue-800 touch-manipulation p-2"
+                style={{ minHeight: '44px', minWidth: '44px' }}
               >
                 {isSignUp 
                   ? 'Already have an account? Sign in' 
@@ -148,7 +153,8 @@ export default function LoginPage() {
               <div>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-800 block"
+                  className="text-sm text-blue-600 hover:text-blue-800 block p-2 touch-manipulation"
+                  style={{ minHeight: '44px', minWidth: '44px' }}
                 >
                   Forgot your password?
                 </Link>

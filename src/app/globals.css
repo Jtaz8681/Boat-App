@@ -53,6 +53,9 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 @layer base {
@@ -62,5 +65,77 @@ body {
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
+}
+
+/* Touch optimization styles */
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Ensure minimum touch targets */
+button, a, input, select, textarea {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Remove hover effects on touch devices */
+@media (hover: none) {
+  button:hover {
+    background-color: inherit;
+  }
+  
+  a:hover {
+    color: inherit;
+  }
+}
+
+/* Improve form field spacing on mobile */
+@media (max-width: 768px) {
+  .space-y-4 > * + * {
+    margin-top: 1.25rem;
+  }
+  
+  .space-y-2 > * + * {
+    margin-top: 0.75rem;
+  }
+}
+
+/* Prevent zoom on input focus on iOS */
+input[type="email"],
+input[type="password"],
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* Better button styling for touch */
+button {
+  -webkit-appearance: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Fix viewport for mobile */
+html {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  position: relative;
 }
