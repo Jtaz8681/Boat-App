@@ -35,7 +35,7 @@ type TripFormData = z.infer<typeof tripSchema>
 export default function NewTripPage() {
   const { user, profile, loading } = useAuth()
   const router = useRouter()
-  const { position, getCurrentPosition, startTracking, stopTracking, isTracking, requestPermission } = useGPS({
+  const { position, getCurrentPosition, startTracking, stopTracking, isTracking, requestPermission, permissionStatus } = useGPS({
     watchInterval: 30000,
     enableHighAccuracy: true,
     enableBackgroundTracking: true,
@@ -45,8 +45,6 @@ export default function NewTripPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTrip, setActiveTrip] = useState<TripData | null>(null)
-  const [showLocationModal, setShowLocationModal] = useState(false)
-  const [gpsPermissionGranted, setGpsPermissionGranted] = useState<boolean | null>(null)
 
   const {
     register,
@@ -98,31 +96,12 @@ export default function NewTripPage() {
     }
   }, [user])
 
-  // Check GPS permission on mount
+  // Get initial position if permission is granted
   useEffect(() => {
-    const checkGPSPermission = async () => {
-      const granted = await requestPermission()
-      setGpsPermissionGranted(granted)
-      if (granted) {
-        getCurrentPosition()
-      }
+    if (permissionStatus === 'granted' && !position) {
+      getCurrentPosition()
     }
-    
-    if (user) {
-      checkGPSPermission()
-    }
-  }, [user, requestPermission, getCurrentPosition])
-
-  // Handle GPS permission granted
-  const handleGPSPermissionGranted = () => {
-    setGpsPermissionGranted(true)
-    getCurrentPosition()
-  }
-
-  // Handle GPS permission denied
-  const handleGPSPermissionDenied = () => {
-    setGpsPermissionGranted(false)
-  }
+  }, [permissionStatus, position, getCurrentPosition])
 
   // Handle trip start
   const onStartTrip = async (data: TripFormData) => {
@@ -216,12 +195,16 @@ export default function NewTripPage() {
   }
 
   // Show GPS permission request if not granted
-  if (gpsPermissionGranted === false) {
+  if (permissionStatus === 'denied' || permissionStatus === 'prompt') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <GPSPermissionRequest
-          onPermissionGranted={handleGPSPermissionGranted}
-          onPermissionDenied={handleGPSPermissionDenied}
+          onPermissionGranted={() => {
+            // Permission granted, the hook will automatically get position
+          }}
+          onPermissionDenied={() => {
+            // Permission denied, user will see error message
+          }}
         />
       </div>
     )
@@ -376,14 +359,21 @@ export default function NewTripPage() {
           </Alert>
         )}
 
-        {/* GPS Permission Request */}
-        {gpsPermissionGranted === null && (
-          <div className="mb-6">
-            <GPSPermissionRequest
-              onPermissionGranted={handleGPSPermissionGranted}
-              onPermissionDenied={handleGPSPermissionDenied}
-            />
-          </div>
+        {/* GPS Status */}
+        {permissionStatus === 'unknown' && (
+          <Card className="mb-6 border-yellow-200 bg-yellow-50">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <MapPin className="h-5 w-5 text-yellow-600" />
+                <div className="flex-1">
+                  <h3 className="font-medium text-yellow-900">Checking GPS Permission</h3>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Please wait while we check GPS permissions...
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <Card>
@@ -493,9 +483,9 @@ export default function NewTripPage() {
                     </>
                   ) : (
                     <>
-                      <div className="h-3 w-3 bg-red-500 rounded-full"></div>
-                      <span className="text-sm text-red-800">
-                        GPS Not Available - Please enable location access
+                      <div className="h-3 w-3 bg-yellow-500 rounded-full"></div>
+                      <span className="text-sm text-yellow-800">
+                        {permissionStatus === 'granted' ? 'Acquiring GPS signal...' : 'GPS permission required'}
                       </span>
                     </>
                   )}
@@ -505,7 +495,7 @@ export default function NewTripPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading || !position || !gpsPermissionGranted}
+                disabled={isLoading || !position || permissionStatus !== 'granted'}
               >
                 {isLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

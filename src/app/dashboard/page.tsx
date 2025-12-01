@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { useGPS } from '@/hooks/useGPS'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Ship, Navigation, Wrench, MapPin, Settings, LogOut, PlusCircle } from 'lucide-react'
@@ -12,12 +13,47 @@ import DatabaseTest from '@/components/DatabaseTest'
 export default function DashboardPage() {
   const { user, profile, loading, signOut } = useAuth()
   const router = useRouter()
+  const { position, permissionStatus, requestPermission } = useGPS({
+    watchInterval: 30000,
+    enableHighAccuracy: true,
+  })
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login')
     }
   }, [user, loading, router])
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/login')
+  }
+
+  const getGPSStatusColor = () => {
+    switch (permissionStatus) {
+      case 'granted':
+        return 'bg-green-100 text-green-800'
+      case 'denied':
+        return 'bg-red-100 text-red-800'
+      case 'prompt':
+        return 'bg-yellow-100 text-yellow-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getGPSStatusText = () => {
+    switch (permissionStatus) {
+      case 'granted':
+        return position ? 'Active' : 'Permission Granted'
+      case 'denied':
+        return 'Permission Denied'
+      case 'prompt':
+        return 'Permission Required'
+      default:
+        return 'Checking...'
+    }
+  }
 
   if (loading) {
     return (
@@ -29,11 +65,6 @@ export default function DashboardPage() {
 
   if (!user || !profile) {
     return null
-  }
-
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/login')
   }
 
   return (
@@ -68,6 +99,30 @@ export default function DashboardPage() {
         <div className="mb-8">
           <DatabaseTest />
         </div>
+
+        {/* GPS Status Alert */}
+        {permissionStatus === 'denied' && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <MapPin className="h-5 w-5 text-red-600" />
+                <div className="flex-1">
+                  <h3 className="font-medium text-red-900">Location Access Required</h3>
+                  <p className="text-sm text-red-700 mt-1">
+                    GPS permission is required to start trips. Please enable location access for this app.
+                  </p>
+                </div>
+                <Button
+                  onClick={requestPermission}
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Enable GPS
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Quick Actions */}
         <div className="mb-8">
@@ -118,7 +173,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">GPS Status</span>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Active</span>
+                  <span className={`px-2 py-1 rounded-full text-xs ${getGPSStatusColor()}`}>
+                    {getGPSStatusText()}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Sync Status</span>

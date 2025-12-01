@@ -20,6 +20,7 @@ interface UseGPSReturn {
   stopTracking: () => void
   getCurrentPosition: () => Promise<GPSPosition | null>
   requestPermission: () => Promise<boolean>
+  permissionStatus: 'unknown' | 'granted' | 'denied' | 'prompt'
 }
 
 export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
@@ -35,6 +36,7 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
   const [error, setError] = useState<string | null>(null)
   const [isTracking, setIsTracking] = useState(false)
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null)
+  const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown')
   
   const watchIdRef = useRef<number | null>(null)
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
@@ -58,44 +60,90 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
     return 'poor'
   }, [])
 
+  // Check current permission status
+  const checkPermissionStatus = useCallback(async (): Promise<'unknown' | 'granted' | 'denied' | 'prompt'> => {
+    if (!isBrowser || !navigator.geolocation) {
+      return 'denied'
+    }
+
+    try {
+      if ('permissions' in navigator) {
+        const permission = await navigator.permissions.query({ name: 'geolocation' })
+        const status = permission.state as 'unknown' | 'granted' | 'denied' | 'prompt'
+        setPermissionStatus(status)
+        setPermissionGranted(status === 'granted')
+        
+        // Listen for permission changes
+        permission.addEventListener('change', () => {
+          const newStatus = permission.state as 'unknown' | 'granted' | 'denied' | 'prompt'
+          setPermissionStatus(newStatus)
+          setPermissionGranted(newStatus === 'granted')
+        })
+        
+        return status
+      }
+    } catch (error) {
+      console.warn('Permission API not available:', error)
+    }
+
+    // Fallback: try to get position to check permission
+    try {
+      await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 1000 })
+      })
+      setPermissionStatus('granted')
+      setPermissionGranted(true)
+      return 'granted'
+    } catch (error) {
+      const geoError = error as GeolocationPositionError
+      if (geoError.code === geoError.PERMISSION_DENIED) {
+        setPermissionStatus('denied')
+        setPermissionGranted(false)
+        return 'denied'
+      }
+      setPermissionStatus('prompt')
+      setPermissionGranted(null)
+      return 'prompt'
+    }
+  }, [isBrowser])
+
   // Request GPS permission
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!isBrowser || !navigator.geolocation) {
       setError('Geolocation is not supported by this browser.')
+      setPermissionStatus('denied')
+      setPermissionGranted(false)
       return false
     }
 
     try {
-      // Check if permission API is available (for newer browsers)
-      if ('permissions' in navigator) {
-        const permission = await navigator.permissions.query({ name: 'geolocation' })
-        setPermissionGranted(permission.state === 'granted')
-        
-        if (permission.state === 'denied') {
-          setError('Location permission denied. Please enable location access in your device settings.')
-          return false
-        }
-        
-        if (permission.state === 'prompt') {
-          // Will trigger permission prompt on first use
-          return true
-        }
+      // First check current status
+      const currentStatus = await checkPermissionStatus()
+      
+      if (currentStatus === 'granted') {
+        return true
       }
 
-      // Test GPS access to trigger permission prompt if needed
+      if (currentStatus === 'denied') {
+        setError('Location permission denied. Please enable location access in your device settings.')
+        return false
+      }
+
+      // Try to get position to trigger permission prompt
       const testPosition = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           resolve,
           reject,
           {
             enableHighAccuracy: true,
-            timeout: 5000,
+            timeout: 10000,
             maximumAge: 0,
           }
         )
       })
 
       if (testPosition) {
+        setPermissionStatus('granted')
         setPermissionGranted(true)
         return true
       }
@@ -108,9 +156,13 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
       switch (geoError.code) {
         case geoError.PERMISSION_DENIED:
           errorMessage = 'Location permission denied. Please enable location access in your device settings.'
+          setPermissionStatus('denied')
+          setPermissionGranted(false)
           break
         case geoError.POSITION_UNAVAILABLE:
           errorMessage = 'Location information is unavailable. Please check your GPS settings.'
+          setPermissionStatus('denied')
+          setPermissionGranted(false)
           break
         case geoError.TIMEOUT:
           errorMessage = 'Location request timed out. Please try again.'
@@ -120,10 +172,9 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
       }
 
       setError(errorMessage)
-      setPermissionGranted(false)
       return false
     }
-  }, [isBrowser])
+  }, [isBrowser, checkPermissionStatus])
 
   // Handle position update
   const handlePositionUpdate = useCallback((position: GeolocationPosition) => {
@@ -149,9 +200,13 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
     switch (error.code) {
       case error.PERMISSION_DENIED:
         errorMessage = 'Location permission denied. Please enable location access in your device settings.'
+        setPermissionStatus('denied')
+        setPermissionGranted(false)
         break
       case error.POSITION_UNAVAILABLE:
         errorMessage = 'Location information is unavailable. Please check your GPS settings.'
+        setPermissionStatus('denied')
+        setPermissionGranted(false)
         break
       case error.TIMEOUT:
         errorMessage = 'Location request timed out. Please try again.'
@@ -162,7 +217,6 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
 
     setError(errorMessage)
     setIsTracking(false)
-    setPermissionGranted(false)
   }, [])
 
   // Get current position once
@@ -257,28 +311,21 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
   useEffect(() => {
     if (!isBrowser) return
 
-    const checkInitialPermission = async () => {
-      if ('permissions' in navigator) {
-        try {
-          const permission = await navigator.permissions.query({ name: 'geolocation' })
-          setPermissionGranted(permission.state === 'granted')
-          
-          // Listen for permission changes
-          permission.addEventListener('change', () => {
-            setPermissionGranted(permission.state === 'granted')
-          })
-        } catch (error) {
-          console.warn('Permission API not available:', error)
-        }
+    const initializeGPS = async () => {
+      await checkPermissionStatus()
+      
+      // If permission is granted, get initial position
+      if (permissionStatus === 'granted') {
+        getCurrentPosition()
       }
     }
 
-    checkInitialPermission()
+    initializeGPS()
 
     return () => {
       stopTracking()
     }
-  }, [isBrowser, stopTracking])
+  }, [isBrowser, checkPermissionStatus, getCurrentPosition, stopTracking, permissionStatus])
 
   return {
     position,
@@ -290,6 +337,7 @@ export function useGPS(options: UseGPSOptions = {}): UseGPSReturn {
     stopTracking,
     getCurrentPosition,
     requestPermission,
+    permissionStatus,
   }
 }
 
